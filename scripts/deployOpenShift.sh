@@ -343,13 +343,22 @@ cat > /home/${SUDOUSER}/deletestucknodes.yml <<EOF
   become: yes
   vars:
     description: "Delete stuck nodes"
+  handlers:
+  - name: restart origin-node
+    systemd:
+      state: restarted
+      name: origin-node
   tasks:
   - name: Delete stuck nodes so it can recreate itself
     command: oc delete node {{inventory_hostname}}
     delegate_to: ${MASTER}-0
+    notify:
+    - restart origin-node
+  post_tasks:
   - name: sleep between deletes
     pause:
       seconds: 25
+
   - name: set masters as unschedulable
     command: oadm manage-node {{inventory_hostname}} --schedulable=false
 EOF
@@ -372,7 +381,7 @@ ansible_ssh_user=$SUDOUSER
 ansible_become=yes
 openshift_install_examples=true
 openshift_deployment_type=origin
-openshift_release=v3.6
+openshift_release=v3.7
 docker_udev_workaround=True
 openshift_use_dnsmasq=True
 openshift_master_default_subdomain=$ROUTING
@@ -440,7 +449,7 @@ cat >> /etc/ansible/hosts <<EOF
 EOF
 
 echo $(date) " - Cloning openshift-ansible repo for use in installation"
-runuser -l $SUDOUSER -c "git clone --single-branch --branch release-3.6 https://github.com/openshift/openshift-ansible /home/$SUDOUSER/openshift-ansible"
+runuser -l $SUDOUSER -c "git clone -b release-3.7 https://github.com/openshift/openshift-ansible /home/$SUDOUSER/openshift-ansible"
 
 echo $(date) " - Running network_manager.yml playbook"
 DOMAIN=`domainname -d`
