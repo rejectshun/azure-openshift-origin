@@ -26,7 +26,7 @@ RESOURCEGROUP=${19}
 LOCATION=${20}
 STORAGEACCOUNT1=${21}
 SAKEY1=${22}
-OCPVER=3.6
+OCPVER=${23}
 
 MASTERLOOP=$((MASTERCOUNT - 1))
 INFRALOOP=$((INFRACOUNT - 1))
@@ -57,6 +57,7 @@ cat > updateansiblecfg.yaml <<EOF
       regexp: '^library '
       insertafter: '#library        = /usr/share/my_modules/'
       line: 'library = /home/${SUDOUSER}/openshift-ansible/library/'
+      line: 'library = /usr/share/ansible/openshift-ansible/library/'
 EOF
 
 # Run Ansible Playbook to update ansible.cfg file
@@ -388,11 +389,12 @@ openshift_use_dnsmasq=True
 openshift_master_default_subdomain=$ROUTING
 openshift_override_hostname_check=true
 osm_use_cockpit=false
-#os_sdn_network_plugin_name='redhat/openshift-ovs-multitenant'
-#console_port=443
+os_sdn_network_plugin_name='redhat/openshift-ovs-multitenant'
+console_port=443
 openshift_cloudprovider_kind=azure
 osm_default_node_selector='type=app'
 openshift_disable_check=disk_availability,memory_availability
+
 # default selectors for router and registry services
 openshift_router_selector='type=infra'
 openshift_registry_selector='type=infra'
@@ -471,21 +473,6 @@ echo $(date) " - Installing OpenShift Container Platform via Ansible Playbook"
 
 runuser -l $SUDOUSER -c "ansible-playbook openshift-ansible/playbooks/byo/config.yml"
 
-echo $(date) " - Modifying sudoers"
-
-sed -i -e "s/Defaults    requiretty/# Defaults    requiretty/" /etc/sudoers
-sed -i -e '/Defaults    env_keep += "LC_TIME LC_ALL LANGUAGE LINGUAS _XKB_CHARSET XAUTHORITY"/aDefaults    env_keep += "PATH"' /etc/sudoers
-
-# Deploying Registry
-echo $(date) "- Registry automatically deployed to infra nodes"
-
-# Deploying Router
-echo $(date) "- Router automaticaly deployed to infra nodes"
-
-echo $(date) "- Re-enabling requiretty"
-
-sed -i -e "s/# Defaults    requiretty/Defaults    requiretty/" /etc/sudoers
-
 # Adding user to OpenShift authentication file
 echo $(date) "- Adding OpenShift user"
 
@@ -516,7 +503,7 @@ echo $(date) "- Configuring OpenShift Cloud Provider to be Azure"
 runuser -l $SUDOUSER -c "ansible-playbook ~/setup-azure-master.yml"
 runuser -l $SUDOUSER -c "ansible-playbook ~/setup-azure-node-master.yml"
 runuser -l $SUDOUSER -c "ansible-playbook ~/setup-azure-node.yml"
-runuser -l $SUDOUSER -c "ansible-playbook ~/deletestucknodes.yml"
+#runuser -l $SUDOUSER -c "ansible-playbook ~/deletestucknodes.yml"
 
 # Delete postinstall files
 #echo $(date) "- Deleting post installation files"
