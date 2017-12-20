@@ -8,7 +8,15 @@
 				"description": "The base URL where artifacts required by this template are located. When the template is deployed using the accompanying scripts, a private location in the subscription will be used and this value will be automatically generated.",
 				"artifactsBaseUrl": ""
 			},
-			"defaultValue": "https://raw.githubusercontent.com/Microsoft/openshift-origin/master/"
+			"defaultValue": "https://raw.githubusercontent.com/rejectshun/azure-openshift-origin/blob/v3.6.1"
+		},
+		"ocpVersion": {
+			"type": "string",
+			"defaultValue": 3.6,
+			"allowedValues": ["3.6", "master"],
+			"metadata": {
+				"description": "Number of OpenShift masters."
+			}
 		},
 		"masterVmSize": {
 			"type": "string",
