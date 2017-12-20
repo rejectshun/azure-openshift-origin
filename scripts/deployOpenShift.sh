@@ -453,6 +453,7 @@ EOF
 
 echo $(date) " - Cloning openshift-ansible repo for use in installation"
 runuser -l $SUDOUSER -c "git clone -b release-${OCPVER} https://github.com/openshift/openshift-ansible /home/$SUDOUSER/openshift-ansible"
+yum -y install openshift-ansible-playbooks openshift-ansible-docs openshift-ansible
 
 echo $(date) " - Running network_manager.yml playbook"
 DOMAIN=`domainname -d`
