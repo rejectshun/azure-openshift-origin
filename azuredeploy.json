@@ -10,6 +10,14 @@
 			},
 			"defaultValue": "https://raw.githubusercontent.com/rejectshun/azure-openshift-origin/blob/v3.6.1"
 		},
+		"ocpVersion": {
+			"type": "string",
+			"defaultValue": 3.6,
+			"allowedValues": ["3.6", "master"],
+			"metadata": {
+				"description": "Number of OpenShift masters."
+			}
+		},
 		"masterVmSize": {
 			"type": "string",
 			"defaultValue": "Standard_DS2_v2",
