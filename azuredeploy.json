@@ -1329,6 +1329,9 @@
 					"_artifactsLocation": {
 						"value": "[parameters('_artifactsLocation')]"
 					},
+					"openShiftVersion": {
+						"value": "[parameters('openShiftVersion')]"
+					},
 					"apiVersionCompute": {
 						"value": "[variables('apiVersionCompute')]"
 					},
