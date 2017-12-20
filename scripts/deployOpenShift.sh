@@ -405,8 +405,25 @@ openshift_master_cluster_hostname=$MASTERPUBLICIPHOSTNAME
 openshift_master_cluster_public_hostname=$MASTERPUBLICIPHOSTNAME
 openshift_master_cluster_public_vip=$MASTERPUBLICIPADDRESS
 
-# Enable HTPasswdPasswordIdentityProvider
+# enable HTPasswdPasswordIdentityProvider
 openshift_master_identity_providers=[{'name': 'htpasswd_auth', 'login': 'true', 'challenge': 'true', 'kind': 'HTPasswdPasswordIdentityProvider', 'filename': '/etc/origin/master/htpasswd'}]
+
+# metrics install
+openshift_metrics_install_metrics=false
+openshift_metrics_image_version=v${OCPVER}
+openshift_metrics_cassandra_storage_type=dynamic
+openshift_metrics_cassandra_pvc_size=100Gi
+openshift_metrics_hawkular_hostname=metrics.$MASTERPUBLICIPHOSTNAME
+
+# logging install
+openshift_logging_install_logging=false
+openshift_logging_image_version=v${OCPVER}
+openshift_logging_es_pvc_dynamic=true
+openshift_logging_namespace=logging
+openshift_logging_es_pvc_size=100Gi
+openshift_logging_kibana_hostname=kibana.$MASTERPUBLICIPHOSTNAME
+openshift_logging_es_cluster_size=1
+openshift_logging_public_master_url=https://kibana.$MASTERPUBLICIPHOSTNAME
 
 # host group for masters
 [masters]
