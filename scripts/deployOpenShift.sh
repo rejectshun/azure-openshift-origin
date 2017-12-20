@@ -58,7 +58,6 @@ cat > updateansiblecfg.yaml <<EOF
       insertafter: '#library        = /usr/share/my_modules/'
       block: |
         library = /home/${SUDOUSER}/openshift-ansible/library/
-        library = /usr/share/ansible/openshift-ansible/library/
 EOF
 
 # Run Ansible Playbook to update ansible.cfg file
