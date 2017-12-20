@@ -12,7 +12,7 @@
 		},
 		"ocpVersion": {
 			"type": "string",
-			"defaultValue": 3.6,
+			"defaultValue": "3.6",
 			"allowedValues": ["3.6", "master"],
 			"metadata": {
 				"description": "Number of OpenShift masters."
