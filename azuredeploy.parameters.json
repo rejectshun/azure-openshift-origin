@@ -5,6 +5,9 @@
 		"_artifactsLocation": {
 			"value": "https://raw.githubusercontent.com/Microsoft/openshift-origin/master/"
 		},
+		"openShiftVersion": {
+			"value": "3.6"
+		},
 		"masterVmSize": {
 			"value": "Standard_DS2_v2"
 		},
