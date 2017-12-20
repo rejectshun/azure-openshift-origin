@@ -410,20 +410,24 @@ openshift_master_identity_providers=[{'name': 'htpasswd_auth', 'login': 'true', 
 
 # metrics install
 openshift_metrics_install_metrics=false
-openshift_metrics_image_version=v${OCPVER}
-openshift_metrics_cassandra_storage_type=dynamic
-openshift_metrics_cassandra_pvc_size=100Gi
 openshift_metrics_hawkular_hostname=metrics.$MASTERPUBLICIPHOSTNAME
+openshift_metrics_image_version=v${OCPVER}
+#openshift_metrics_cassandra_storage_type=dynamic
+#openshift_metrics_cassandra_pvc_size=100Gi
+openshift_metrics_duration=9
 
 # logging install
 openshift_logging_install_logging=false
+openshift_logging_public_master_url=https://kibana.$MASTERPUBLICIPHOSTNAME
+openshift_logging_purge_logging=false
+openshift_logging_use_ops=true
 openshift_logging_image_version=v${OCPVER}
 openshift_logging_es_pvc_dynamic=true
 openshift_logging_namespace=logging
-openshift_logging_es_pvc_size=100Gi
+#openshift_logging_es_pvc_size=100Gi
 openshift_logging_kibana_hostname=kibana.$MASTERPUBLICIPHOSTNAME
 openshift_logging_es_cluster_size=1
-openshift_logging_public_master_url=https://kibana.$MASTERPUBLICIPHOSTNAME
+
 
 # host group for masters
 [masters]
@@ -471,7 +475,6 @@ EOF
 
 echo $(date) " - Cloning openshift-ansible repo for use in installation"
 runuser -l $SUDOUSER -c "git clone -b release-${OCPVER} https://github.com/openshift/openshift-ansible /home/$SUDOUSER/openshift-ansible"
-yum -y install openshift-ansible-playbooks openshift-ansible-docs openshift-ansible
 
 echo $(date) " - Running network_manager.yml playbook"
 DOMAIN=`domainname -d`
