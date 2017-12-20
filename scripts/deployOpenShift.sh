@@ -52,12 +52,13 @@ cat > updateansiblecfg.yaml <<EOF
 - hosts: localhost
   gather_facts: no
   tasks:
-  - lineinfile:
+  - blockinfile:
       dest: /etc/ansible/ansible.cfg
       regexp: '^library '
       insertafter: '#library        = /usr/share/my_modules/'
-      line: 'library = /home/${SUDOUSER}/openshift-ansible/library/'
-      line: 'library = /usr/share/ansible/openshift-ansible/library/'
+      block: |
+        library = /home/${SUDOUSER}/openshift-ansible/library/
+        library = /usr/share/ansible/openshift-ansible/library/
 EOF
 
 # Run Ansible Playbook to update ansible.cfg file
