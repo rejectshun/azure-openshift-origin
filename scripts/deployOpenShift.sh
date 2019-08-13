@@ -26,6 +26,7 @@ RESOURCEGROUP=${19}
 LOCATION=${20}
 STORAGEACCOUNT1=${21}
 SAKEY1=${22}
+OCPVER=${23}
 
 MASTERLOOP=$((MASTERCOUNT - 1))
 INFRALOOP=$((INFRACOUNT - 1))
@@ -51,11 +52,12 @@ cat > updateansiblecfg.yaml <<EOF
 - hosts: localhost
   gather_facts: no
   tasks:
-  - lineinfile:
+  - blockinfile:
       dest: /etc/ansible/ansible.cfg
       regexp: '^library '
       insertafter: '#library        = /usr/share/my_modules/'
-      line: 'library = /home/${SUDOUSER}/openshift-ansible/library/'
+      block: |
+        library = /home/${SUDOUSER}/openshift-ansible/library/
 EOF
 
 # Run Ansible Playbook to update ansible.cfg file
@@ -147,7 +149,7 @@ EOF
 # Create Azure Cloud Provider configuration Playbook for Master Config
 
 cat > /home/${SUDOUSER}/setup-azure-master.yml <<EOF
-#!/usr/bin/ansible-playbook 
+#!/usr/bin/ansible-playbook
 - hosts: masters
   gather_facts: no
   serial: 1
@@ -185,7 +187,8 @@ cat > /home/${SUDOUSER}/setup-azure-master.yml <<EOF
           "subscriptionID" : "{{ g_subscriptionId }}",
           "tenantID" : "{{ g_tenantId }}",
           "resourceGroup": "{{ g_resourceGroup }}",
-        } 
+          "location": "{{ g_location }}",
+        }
     notify:
     - restart origin-master-api
     - restart origin-master-controllers
@@ -219,7 +222,7 @@ EOF
 # Create Azure Cloud Provider configuration Playbook for Node Config (Master Nodes)
 
 cat > /home/${SUDOUSER}/setup-azure-node-master.yml <<EOF
-#!/usr/bin/ansible-playbook 
+#!/usr/bin/ansible-playbook
 - hosts: masters
   serial: 1
   gather_facts: no
@@ -251,7 +254,8 @@ cat > /home/${SUDOUSER}/setup-azure-node-master.yml <<EOF
           "subscriptionID" : "{{ g_subscriptionId }}",
           "tenantID" : "{{ g_tenantId }}",
           "resourceGroup": "{{ g_resourceGroup }}",
-        } 
+          "location": "{{ g_location }}",
+        }
     notify:
     - restart origin-node
   - name: insert the azure disk config into the node
@@ -274,7 +278,7 @@ EOF
 # Create Azure Cloud Provider configuration Playbook for Node Config (Non-Master Nodes)
 
 cat > /home/${SUDOUSER}/setup-azure-node.yml <<EOF
-#!/usr/bin/ansible-playbook 
+#!/usr/bin/ansible-playbook
 - hosts: nodes:!masters
   serial: 1
   gather_facts: no
@@ -306,7 +310,8 @@ cat > /home/${SUDOUSER}/setup-azure-node.yml <<EOF
           "subscriptionID" : "{{ g_subscriptionId }}",
           "tenantID" : "{{ g_tenantId }}",
           "resourceGroup": "{{ g_resourceGroup }}",
-        } 
+          "location": "{{ g_location }}",
+        }
     notify:
     - restart origin-node
   - name: insert the azure disk config into the node
@@ -340,13 +345,22 @@ cat > /home/${SUDOUSER}/deletestucknodes.yml <<EOF
   become: yes
   vars:
     description: "Delete stuck nodes"
+  handlers:
+  - name: restart origin-node
+    systemd:
+      state: restarted
+      name: origin-node
   tasks:
   - name: Delete stuck nodes so it can recreate itself
     command: oc delete node {{inventory_hostname}}
     delegate_to: ${MASTER}-0
+    notify:
+    - restart origin-node
+  post_tasks:
   - name: sleep between deletes
     pause:
       seconds: 25
+
   - name: set masters as unschedulable
     command: oadm manage-node {{inventory_hostname}} --schedulable=false
 EOF
@@ -369,17 +383,18 @@ ansible_ssh_user=$SUDOUSER
 ansible_become=yes
 openshift_install_examples=true
 openshift_deployment_type=origin
-openshift_release=v3.6
+openshift_release=v${OCPVER}
 docker_udev_workaround=True
 openshift_use_dnsmasq=True
 openshift_master_default_subdomain=$ROUTING
 openshift_override_hostname_check=true
 osm_use_cockpit=false
-#os_sdn_network_plugin_name='redhat/openshift-ovs-multitenant'
-#console_port=443
+os_sdn_network_plugin_name='redhat/openshift-ovs-multitenant'
+console_port=443
 openshift_cloudprovider_kind=azure
 osm_default_node_selector='type=app'
 openshift_disable_check=disk_availability,memory_availability
+
 # default selectors for router and registry services
 openshift_router_selector='type=infra'
 openshift_registry_selector='type=infra'
@@ -389,8 +404,29 @@ openshift_master_cluster_hostname=$MASTERPUBLICIPHOSTNAME
 openshift_master_cluster_public_hostname=$MASTERPUBLICIPHOSTNAME
 openshift_master_cluster_public_vip=$MASTERPUBLICIPADDRESS
 
-# Enable HTPasswdPasswordIdentityProvider
+# enable HTPasswdPasswordIdentityProvider
 openshift_master_identity_providers=[{'name': 'htpasswd_auth', 'login': 'true', 'challenge': 'true', 'kind': 'HTPasswdPasswordIdentityProvider', 'filename': '/etc/origin/master/htpasswd'}]
+
+# metrics install
+openshift_metrics_install_metrics=false
+openshift_metrics_hawkular_hostname=metrics.$MASTERPUBLICIPHOSTNAME
+openshift_metrics_image_version=v${OCPVER}
+#openshift_metrics_cassandra_storage_type=dynamic
+#openshift_metrics_cassandra_pvc_size=100Gi
+openshift_metrics_duration=9
+
+# logging install
+openshift_logging_install_logging=false
+openshift_logging_public_master_url=https://kibana.$MASTERPUBLICIPHOSTNAME
+openshift_logging_purge_logging=false
+openshift_logging_use_ops=true
+openshift_logging_image_version=v${OCPVER}
+openshift_logging_es_pvc_dynamic=true
+openshift_logging_namespace=logging
+#openshift_logging_es_pvc_size=100Gi
+openshift_logging_kibana_hostname=kibana.$MASTERPUBLICIPHOSTNAME
+openshift_logging_es_cluster_size=1
+
 
 # host group for masters
 [masters]
@@ -398,7 +434,7 @@ $MASTER-[0:${MASTERLOOP}]
 
 # host group for etcd
 [etcd]
-$MASTER-[0:${MASTERLOOP}] 
+$MASTER-[0:${MASTERLOOP}]
 
 [master0]
 $MASTER-0
@@ -437,41 +473,26 @@ cat >> /etc/ansible/hosts <<EOF
 EOF
 
 echo $(date) " - Cloning openshift-ansible repo for use in installation"
-runuser -l $SUDOUSER -c "git clone https://github.com/openshift/openshift-ansible /home/$SUDOUSER/openshift-ansible"
+runuser -l $SUDOUSER -c "git clone -b release-${OCPVER} https://github.com/openshift/openshift-ansible /home/$SUDOUSER/openshift-ansible"
 
-echo $(date) " - Running network_manager.yml playbook" 
-DOMAIN=`domainname -d` 
+echo $(date) " - Running network_manager.yml playbook"
+DOMAIN=`domainname -d`
 
-# Setup NetworkManager to manage eth0 
-runuser -l $SUDOUSER -c "ansible-playbook openshift-ansible/playbooks/byo/openshift-node/network_manager.yml" 
+# Setup NetworkManager to manage eth0
+runuser -l $SUDOUSER -c "ansible-playbook openshift-ansible/playbooks/byo/openshift-node/network_manager.yml"
 
-echo $(date) " - Setting up NetworkManager on eth0" 
-# Configure resolv.conf on all hosts through NetworkManager 
+echo $(date) " - Setting up NetworkManager on eth0"
+# Configure resolv.conf on all hosts through NetworkManager
 
-runuser -l $SUDOUSER -c "ansible all -b -m service -a \"name=NetworkManager state=restarted\"" 
-sleep 5 
-runuser -l $SUDOUSER -c "ansible all -b -m command -a \"nmcli con modify eth0 ipv4.dns-search $DOMAIN\"" 
-runuser -l $SUDOUSER -c "ansible all -b -m service -a \"name=NetworkManager state=restarted\"" 
+runuser -l $SUDOUSER -c "ansible all -b -m service -a \"name=NetworkManager state=restarted\""
+sleep 5
+runuser -l $SUDOUSER -c "ansible all -b -m command -a \"nmcli con modify eth0 ipv4.dns-search $DOMAIN\""
+runuser -l $SUDOUSER -c "ansible all -b -m service -a \"name=NetworkManager state=restarted\""
 
 # Initiating installation of OpenShift Container Platform using Ansible Playbook
 echo $(date) " - Installing OpenShift Container Platform via Ansible Playbook"
 
 runuser -l $SUDOUSER -c "ansible-playbook openshift-ansible/playbooks/byo/config.yml"
-
-echo $(date) " - Modifying sudoers"
-
-sed -i -e "s/Defaults    requiretty/# Defaults    requiretty/" /etc/sudoers
-sed -i -e '/Defaults    env_keep += "LC_TIME LC_ALL LANGUAGE LINGUAS _XKB_CHARSET XAUTHORITY"/aDefaults    env_keep += "PATH"' /etc/sudoers
-
-# Deploying Registry
-echo $(date) "- Registry automatically deployed to infra nodes"
-
-# Deploying Router
-echo $(date) "- Router automaticaly deployed to infra nodes"
-
-echo $(date) "- Re-enabling requiretty"
-
-sed -i -e "s/# Defaults    requiretty/Defaults    requiretty/" /etc/sudoers
 
 # Adding user to OpenShift authentication file
 echo $(date) "- Adding OpenShift user"
@@ -503,19 +524,18 @@ echo $(date) "- Configuring OpenShift Cloud Provider to be Azure"
 runuser -l $SUDOUSER -c "ansible-playbook ~/setup-azure-master.yml"
 runuser -l $SUDOUSER -c "ansible-playbook ~/setup-azure-node-master.yml"
 runuser -l $SUDOUSER -c "ansible-playbook ~/setup-azure-node.yml"
-runuser -l $SUDOUSER -c "ansible-playbook ~/deletestucknodes.yml"
+#runuser -l $SUDOUSER -c "ansible-playbook ~/deletestucknodes.yml"
 
 # Delete postinstall files
-echo $(date) "- Deleting post installation files"
-
-
-rm /home/${SUDOUSER}/addocpuser.yml
-rm /home/${SUDOUSER}/assignclusteradminrights.yml
-rm /home/${SUDOUSER}/dockerregistry.yml
-rm /home/${SUDOUSER}/vars.yml
-rm /home/${SUDOUSER}/setup-azure-master.yml
-rm /home/${SUDOUSER}/setup-azure-node-master.yml
-rm /home/${SUDOUSER}/setup-azure-node.yml
-rm /home/${SUDOUSER}/deletestucknodes.yml
+#echo $(date) "- Deleting post installation files"
+#
+#rm /home/${SUDOUSER}/addocpuser.yml
+#rm /home/${SUDOUSER}/assignclusteradminrights.yml
+#rm /home/${SUDOUSER}/dockerregistry.yml
+#rm /home/${SUDOUSER}/vars.yml
+#rm /home/${SUDOUSER}/setup-azure-master.yml
+#rm /home/${SUDOUSER}/setup-azure-node-master.yml
+#rm /home/${SUDOUSER}/setup-azure-node.yml
+#rm /home/${SUDOUSER}/deletestucknodes.yml
 
 echo $(date) " - Script complete"

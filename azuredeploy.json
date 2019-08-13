@@ -8,7 +8,15 @@
 				"description": "The base URL where artifacts required by this template are located. When the template is deployed using the accompanying scripts, a private location in the subscription will be used and this value will be automatically generated.",
 				"artifactsBaseUrl": ""
 			},
-			"defaultValue": "https://raw.githubusercontent.com/Microsoft/openshift-origin/master/"
+			"defaultValue": "https://raw.githubusercontent.com/rejectshun/azure-openshift-origin/v3.6/"
+		},
+		"openShiftVersion": {
+			"type": "string",
+			"defaultValue": "3.6",
+			"allowedValues": ["3.6"],
+			"metadata": {
+				"description": "Version of OpenShift to install"
+			}
 		},
 		"masterVmSize": {
 			"type": "string",
@@ -233,6 +241,7 @@
 		"masterLbBackendPoolId": "[concat(variables('masterLbId'),'/backendAddressPools/loadBalancerBackend')]",
 		"masterLbHttpProbeId": "[concat(variables('masterLbId'),'/probes/httpProbe')]",
 		"masterLb8443ProbeId": "[concat(variables('masterLbId'),'/probes/8443Probe')]",
+		"masterLb443ProbeId": "[concat(variables('masterLbId'),'/probes/443Probe')]",
 
 		"infraLoadBalancerName": "[concat(variables('openshiftInfraHostname'), 'lb')]",
 		"infraPublicIpAddressId": "[resourceId('Microsoft.Network/publicIPAddresses', variables('infraLbPublicIpDnsLabel'))]",
@@ -245,7 +254,7 @@
 		"centos": {
 			"publisher": "Openlogic",
 			"offer": "CentOS",
-			"sku": "7.3",
+			"sku": "7.4",
 			"version": "latest"
 		},
 		"rhel": {
@@ -817,12 +826,38 @@
 							"id": "[variables('masterLb8443ProbeId')]"
 						}
 					}
+				}, {
+					"name": "OpenShiftAdminConsole443",
+					"properties": {
+						"frontendIPConfiguration": {
+							"id": "[variables('masterLbFrontEndConfigId')]"
+						},
+						"backendAddressPool": {
+							"id": "[variables('masterLbBackendPoolId')]"
+						},
+						"protocol": "Tcp",
+						"loadDistribution": "SourceIP",
+						"idleTimeoutInMinutes": 30,
+						"frontendPort": 443,
+						"backendPort": 443,
+						"probe": {
+							"id": "[variables('masterLb443ProbeId')]"
+						}
+					}
 				}],
 				"probes": [{
 					"name": "8443Probe",
 					"properties": {
 						"protocol": "Tcp",
 						"port": 8443,
+						"intervalInSeconds": 5,
+						"numberOfProbes": 2
+					}
+				}, {
+					"name": "443Probe",
+					"properties": {
+						"protocol": "Tcp",
+						"port": 443,
 						"intervalInSeconds": 5,
 						"numberOfProbes": 2
 					}
@@ -1239,7 +1274,7 @@
 					]
 				},
 				"protectedSettings": {
-					"commandToExecute": "[concat('bash ', variables('masterPrepScriptFileName'), ' ', variables('newStorageAccountPersistentVolume1'), ' ', parameters('adminUsername'))]"
+					"commandToExecute": "[concat('bash ', variables('masterPrepScriptFileName'), ' ', variables('newStorageAccountPersistentVolume1'), ' ', variables('location') , ' ', parameters('adminUsername'))]"
 				}
 			}
 		}, {
@@ -1320,6 +1355,9 @@
 				"parameters": {
 					"_artifactsLocation": {
 						"value": "[parameters('_artifactsLocation')]"
+					},
+					"openShiftVersion": {
+						"value": "[parameters('openShiftVersion')]"
 					},
 					"apiVersionCompute": {
 						"value": "[variables('apiVersionCompute')]"
